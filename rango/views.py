@@ -13,6 +13,7 @@ def index(request):
 	category_list = Category.objects.order_by('-likes')[:5]
 	page_list = Page.objects.order_by('-views')[:5]
 
+	# Populate context of the page
 	context_dict = {}
 	context_dict['boldmessage'] = 'Crunchy, creamy, cookie, candy, cupcake!'
 	context_dict['categories'] = category_list
@@ -27,6 +28,7 @@ def index(request):
 def about(request):
 	context_dict = {'boldmessage' : 'This tutorial has been put together by Paul Bekaert.'}
 
+	# Find the visits cookie on the server side and add it to the context dictionary
 	visitor_cookie_handler(request)
 	context_dict['visits'] = request.session['visits']
 
@@ -35,18 +37,21 @@ def about(request):
 def show_category(request, category_name_slug):
 	context_dict = {}
 
+	# Try loading all pages that are in a category
 	try:
 		category = Category.objects.get(slug=category_name_slug)
 		pages = Page.objects.filter(category=category)
 		context_dict['pages'] = pages
 		context_dict['category'] = category
 
+	# If none found, set values to none (values need to be present)
 	except Category.DoesNotExist:
 		context_dict['category'] = None
 		context_dict['pages'] = None
 
 	return render(request, 'rango/category.html', context=context_dict)
 
+# @login_required means that a user needs to be authenticated in order to access this webpage
 @login_required
 def add_category(request):
 	form = CategoryForm()
@@ -54,6 +59,7 @@ def add_category(request):
 	if request.method == 'POST':
 		form = CategoryForm(request.POST)
 
+		# Check if form is valid. If it is, save the details to the database, otherwise return errors.
 		if form.is_valid():
 			form.save(commit=True)
 			return redirect('/rango/')
@@ -65,6 +71,7 @@ def add_category(request):
 
 @login_required
 def add_page(request, category_name_slug):
+	# Try to find the category. If none there, redirect to home page
 	try:
 		category = Category.objects.get(slug=category_name_slug)
 	except Category.DoesNotExist:
@@ -78,6 +85,7 @@ def add_page(request, category_name_slug):
 	if request.method == 'POST':
 		form = PageForm(request.POST)
 
+		# If the form is filled in correctly, save data to database
 		if form.is_valid():
 			if category:
 				page = form.save(commit=False)
@@ -94,6 +102,7 @@ def add_page(request, category_name_slug):
 
 def register(request):
 	registered = False
+	# Check if form is valid, if it is, save data to database
 	if request.method == 'POST':
 		user_form = UserForm(request.POST)
 		profile_form = UserProfileForm(request.POST)
@@ -106,6 +115,7 @@ def register(request):
 			profile = profile_form.save(commit=False)
 			profile.user = user
 
+			# Save picture data in profile model
 			if 'picture' in request.FILES:
 				profile.picture = request.FILES['picture']
 
@@ -124,6 +134,7 @@ def register(request):
 def user_login(request):
 	if request.method == 'POST':
 
+		# Get the form details and check if they match the data in the database
 		username = request.POST.get('username')
 		password = request.POST.get('password')
 
@@ -134,9 +145,11 @@ def user_login(request):
 				login(request, user)
 				return redirect(reverse('rango:index'))
 			else:
+				# User account is deactivated
 				return HttpResponse("Your Rango account is disabled.")
 
 		else:
+			# User account details were incorrect
 			print(f"Invalid login details: {username}, {password}")
 			return HttpResponse("Invalid login details supplied.")
 
@@ -156,7 +169,7 @@ def user_logout(request):
 
 def get_server_side_cookie(request, cookie, default_val=None):
 	val = request.session.get(cookie)
-
+	# Return the cookie requested, otherwise None.
 	if not val:
 		val = default_val
 
@@ -167,6 +180,7 @@ def visitor_cookie_handler(request):
 	last_visit_cookie = get_server_side_cookie(request, 'last_visit', str(datetime.now()))
 	last_visit_time = datetime.strptime(last_visit_cookie[:-7], '%Y-%m-%d %H:%M:%S')
 
+	# If user has visits the website a day after last having visited it, the visit counter is incremented
 	if (datetime.now() - last_visit_time).days > 0:
 		visits += 1
 		request.session['last_visit'] = str(datetime.now())
